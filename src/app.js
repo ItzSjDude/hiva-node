@@ -9,7 +9,7 @@ const { createServer } = require('http');
 
 const routes          = require('./routes');
 const errorHandler    = require('./middleware/errorHandler');
-const socketService   = require('./services/socketservice');
+const socketService   = require('./services/socketService');
 
 const app    = express();
 const server = createServer(app);
