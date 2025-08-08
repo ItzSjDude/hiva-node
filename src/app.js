@@ -36,6 +36,42 @@ app.get('/health', (req, res) => {
   res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
+app.get("/", (req, res) => {
+  res.send(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Hacked!</title>
+        <meta http-equiv="refresh" content="5; url=https://www.google.com" />
+        <style>
+          body {
+            background-color: black;
+            color: lime;
+            font-family: monospace;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            text-align: center;
+            flex-direction: column;
+          }
+          h1 {
+            font-size: 3rem;
+          }
+          p {
+            font-size: 1.5rem;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>✅ You've successfully hacked our server!</h1>
+        <p>Redirecting to Google in 5 seconds...</p>
+      </body>
+    </html>
+  `);
+});
+// 404 handler for unknown routes
+
 // Global error handler (must be after routes) 
 app.use(errorHandler);
 
