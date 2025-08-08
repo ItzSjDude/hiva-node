@@ -44,12 +44,30 @@ exports.createParty = async (req, res) => {
       isMuted: false
     });
 
+    // generate LiveKit token for host
+    const token = generateLiveKitToken(
+      livekitRoomName,
+      req.user.username,
+      true // host => canPublish
+    );
+
     // fetch with host info
     const partyWithHost = await AudioParty.findByPk(party.id, {
-      include: [{ model: User, as: 'host', attributes: ['id','username'] }]
+      include: [{ model: User, as: 'host', attributes: ['id', 'username'] }]
     });
 
-    res.status(201).json({ message: 'Party created', party: partyWithHost });
+    // remove hashed password before sending response
+    if (partyWithHost?.dataValues?.password) {
+      delete partyWithHost.dataValues.password;
+    }
+
+    res.status(201).json({
+      message: 'Party created',
+      party: partyWithHost,
+      token,
+      roomName: livekitRoomName,
+      serverUrl: process.env.LIVEKIT_URL
+    });
   } catch (err) {
     console.error('Create party error:', err);
     res.status(500).json({ error: 'Internal server error' });
