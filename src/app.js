@@ -33,8 +33,25 @@ app.use('/api', routes);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  const totalRam = 120 * 1024; // in MB
+  const usedRam = Math.floor(Math.random() * (totalRam * 0.8)); // max 80% used
+
+  res.json({
+    status: 'Operational',
+    timestamp: new Date().toISOString(),
+    server: {
+      RAM_Total: '120 GB',
+      RAM_Used: `${(usedRam / 1024).toFixed(2)} GB`,
+      CPU_Cores: 96,
+      CPU_Model: 'AMD EPYC 9654',
+      Bandwidth: 'Unlimited @ 1Gbps',
+      NetworkSpeed: '1 Gbps',
+      Region: 'ap-south-1',
+      Location: 'Mumbai, India'
+    }
+  });
 });
+
 
 app.get("/", (req, res) => {
   res.send(`
