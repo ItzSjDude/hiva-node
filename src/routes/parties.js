@@ -11,7 +11,7 @@ router.get('/',authOrRegisterMiddleware, partyController.getAllParties);
 
 // Create (host only)
 router.post(
-  '/',
+  '/create',
   authOrRegisterMiddleware,
   [ body('title').notEmpty().withMessage('Title required') ],
   partyController.createParty
