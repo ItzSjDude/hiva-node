@@ -69,7 +69,7 @@ const partyWithHost = await AudioParty.findByPk(party.id, {
       party: partyWithHost,
       token,
       roomName: livekitRoomName,
-      serverUrl: process.env.LIVEKIT_URL
+      serverUrl: process.env.LIVEKIT_WS_URL
     });
   } catch (err) {
     console.error('Create party error:', err);
