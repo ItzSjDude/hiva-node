@@ -13,7 +13,7 @@ jobs:
       - name: Trigger Webhook on Hiva Server
         run: |
           BODY='{}'
-          SECRET='H1v4@123Secure!'
+          SECRET='HIVA_NODE_SJ#@#$#@$#@$#@@#@#@@@@$@$'
           SIGNATURE="sha256=$(echo -n $BODY | openssl dgst -sha256 -hmac $SECRET | sed 's/^.* //')"
 
           curl -X POST https://w.ap-south-1.hivatechstudio.com/ \
