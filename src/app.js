@@ -30,6 +30,7 @@ app.use('/uploads', express.static('uploads'));
 
 // Mount API routes
 app.use('/api', routes);
+app.use('/api/auth', require('./routes/nodetokengen'));
 
 // Health check
 app.get('/health', (req, res) => {
