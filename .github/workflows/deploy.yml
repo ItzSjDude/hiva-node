@@ -1,0 +1,23 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main  # Change if using a different branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger Webhook on Hiva Server
+        run: |
+          BODY='{}'
+          SECRET='H1v4@123Secure!'
+          SIGNATURE="sha256=$(echo -n $BODY | openssl dgst -sha256 -hmac $SECRET | sed 's/^.* //')"
+
+          curl -X POST https://w.ap-south-1.hivatechstudio.com/ \
+            -H "Content-Type: application/json" \
+            -H "X-Hub-Signature-256: $SIGNATURE" \
+            -d "$BODY"
+
