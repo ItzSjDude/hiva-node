@@ -43,18 +43,21 @@ exports.createParty = async (req, res) => {
       role: 'host',
       isMuted: false
     });
+const partyWithHost = await AudioParty.findByPk(party.id, {
+      include: [{ model: User, as: 'host', attributes: ['id', 'username'] }]
+    });
 
     // generate LiveKit token for host
     const token = generateLiveKitToken(
       livekitRoomName,
-      req.user.username,
+      partyWithHost.host.username,
       true // host => canPublish
     );
 
     // fetch with host info
-    const partyWithHost = await AudioParty.findByPk(party.id, {
-      include: [{ model: User, as: 'host', attributes: ['id', 'username'] }]
-    });
+    // const partyWithHost = await AudioParty.findByPk(party.id, {
+    //   include: [{ model: User, as: 'host', attributes: ['id', 'username'] }]
+    // });
 
     // remove hashed password before sending response
     if (partyWithHost?.dataValues?.password) {
