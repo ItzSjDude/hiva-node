@@ -46,7 +46,7 @@ exports.createParty = async (req, res) => {
 
     // fetch with host info
     const partyWithHost = await AudioParty.findByPk(party.id, {
-      include: [{ model: User, as: 'host', attributes: ['id','username','avatar'] }]
+      include: [{ model: User, as: 'host', attributes: ['id','username'] }]
     });
 
     res.status(201).json({ message: 'Party created', party: partyWithHost });
