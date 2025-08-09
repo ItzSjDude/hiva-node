@@ -96,7 +96,7 @@ exports.getAllParties = async (req, res) => {
 
     const result = await AudioParty.findAndCountAll({
       where,
-      include: [{ model: User, as: 'host', attributes: ['id', 'username', 'displayName', 'avatar'] }],
+      include: [{ model: User, as: 'host', attributes: ['id', 'username'] }],
       limit: parseInt(limit),
       offset: (page - 1) * limit,
       order: [['createdAt', 'DESC']],
