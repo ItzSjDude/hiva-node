@@ -172,7 +172,7 @@ exports.joinParty = async (req, res) => {
     }
 
     // listener token (no publish)
-    const token = generateLiveKitToken(party.livekitRoomName, req.user.username, false);
+    const token = generateLiveKitToken(party.livekitRoomName, req.phpuser.username, false);
 
     res.json({
       message: 'Joined party',
@@ -240,7 +240,7 @@ exports.takeSeat = async (req, res) => {
     await participant.update({ seatNumber: seat, role: 'speaker', isMuted: false });
 
     // speaker token (publish)
-    const token = generateLiveKitToken(party.livekitRoomName, req.user.username, true);
+    const token = generateLiveKitToken(party.livekitRoomName, req.phpuser.username, true);
     res.json({ message: `Seat ${seat} taken`, token, roomName: party.livekitRoomName, serverUrl: process.env.LIVEKIT_WS_URL });
   } catch (err) {
     console.error('Take seat error:', err);
@@ -267,7 +267,7 @@ exports.leaveSeat = async (req, res) => {
     await participant.update({ seatNumber: null, role: 'listener', isMuted: true });
 
     // listener token (no publish)
-    const token = generateLiveKitToken(party.livekitRoomName, req.user.username, false);
+    const token = generateLiveKitToken(party.livekitRoomName, req.phpuser.username, false);
     res.json({ message: 'Left seat', token, roomName: party.livekitRoomName, serverUrl: process.env.LIVEKIT_WS_URL });
   } catch (err) {
     console.error('Leave seat error:', err);

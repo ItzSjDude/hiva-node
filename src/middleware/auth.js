@@ -1,6 +1,7 @@
 // src/middleware/authOrRegisterMiddleware.js
 const jwt = require('jsonwebtoken');
 const NodeUser = require('../models/NodeUser');
+const User = require('../models/User');
 
 module.exports = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -12,10 +13,11 @@ module.exports = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await NodeUser.findOne({ where: { uid: decoded.uid } });
 
-      if (!user || user.is_banned) {
+      const phpUser = await User.findOne({ where: { uid: decoded.uid } });
+      if (!user || user.is_banned || !phpUser) {
         return res.status(403).json({ success: false, message: 'Invalid or banned user.' });
       }
-
+      req.phpuser = phpUser; // Attach PHP user data
       req.user = user;
       return next(); // continue to controller
     } else {
