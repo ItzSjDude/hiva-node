@@ -1,34 +1,42 @@
-// src/routes/parties.js
+// src/routes/partyRoutes.js
 const express = require('express');
-const { body } = require('express-validator');
+const { body, param } = require('express-validator');
 const partyController = require('../controllers/partyController');
-const authOrRegisterMiddleware = require('../middleware/auth');
+const authOrRegisterMiddleware = require('../middleware/authOrRegisterMiddleware');
 
 const router = express.Router();
 
-// List & search
-router.get('/',authOrRegisterMiddleware, partyController.getAllParties);
-
-// Create (host only)
+// Create party
 router.post(
   '/create',
   authOrRegisterMiddleware,
-  [ body('title').notEmpty().withMessage('Title required') ],
+  [body('title').notEmpty().withMessage('Title is required')],
   partyController.createParty
 );
 
-// Get single party
-router.get('/:id',authOrRegisterMiddleware, partyController.getPartyById);
+// List & Details
+router.get('/', partyController.getAllParties);
+router.get('/:id', partyController.getPartyById);
 
-// Join / leave
+// Join / Leave party
 router.post('/:id/join', authOrRegisterMiddleware, partyController.joinParty);
 router.post('/:id/leave', authOrRegisterMiddleware, partyController.leaveParty);
 
-// Seat management (1–6)
-router.post('/:id/seats/:seatNumber/take', authOrRegisterMiddleware, partyController.takeSeat);
-router.post('/:id/seats/:seatNumber/leave', authOrRegisterMiddleware, partyController.leaveSeat);
+// Seats
+router.post(
+  '/:id/seats/:seatNumber/take',
+  authOrRegisterMiddleware,
+  [param('seatNumber').isInt({ min: 1 }).withMessage('Seat number must be valid')],
+  partyController.takeSeat
+);
+router.post(
+  '/:id/seats/:seatNumber/leave',
+  authOrRegisterMiddleware,
+  [param('seatNumber').isInt({ min: 1 }).withMessage('Seat number must be valid')],
+  partyController.leaveSeat
+);
 
-// End party
+// End party (host)
 router.post('/:id/end', authOrRegisterMiddleware, partyController.endParty);
 
 module.exports = router;
