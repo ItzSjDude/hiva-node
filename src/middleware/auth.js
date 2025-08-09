@@ -13,7 +13,7 @@ module.exports = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await NodeUser.findOne({ where: { uid: decoded.uid } });
 
-      const phpUser = await User.findOne({ where: { uid: decoded.uid } });
+      const phpUser = await User.findOne({ where: { id: decoded.uid } });
       if (!user || user.is_banned || !phpUser) {
         return res.status(403).json({ success: false, message: 'Invalid or banned user.' });
       }
