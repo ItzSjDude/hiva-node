@@ -13,6 +13,9 @@ const {
 const AudioPartySeat = require('../models/AudioPartySeats');
 const AudioParty = require('../models/AudioParty');
 
+// simple UUID regex to detect real PKs
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 async function fetchSeatsSnapshot(partyId) {
   const rows = await AudioPartySeat.findAll({
     where: { partyId },
@@ -27,65 +30,101 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
 
   io.on('connection', async (socket) => {
     logger.info(`[SeatGateway] New connection: ${socket.id} from ${socket.handshake.address}`);
-    
-    socket.on('disconnect', (reason) => {
-      logger.info(`[SeatGateway] Disconnected: ${socket.id}, Reason: ${reason}`);
-    });
-    
+
+    // keep only this error handler (fine)
     socket.on('error', (error) => {
       logger.error(`[SeatGateway] Error for ${socket.id}:`, error);
     });
-    const { token, jwt: jwtToken, partyId } = socket.handshake.query || {};
-    const tok = token || jwtToken;
-    if (!tok || !partyId) return socket.disconnect(true);
 
+    // 🔐 Read from query (your client is sending query)
+    const { token, jwt: jwtToken, partyId: rawPartyId } = socket.handshake.query || {};
+    const tok = token || jwtToken;
+    if (!tok) {
+      logger.warn(`[SeatGateway] Disconnect: missing token`);
+      return socket.disconnect(true);
+    }
+    if (!rawPartyId) {
+      logger.warn(`[SeatGateway] Disconnect: missing partyId`);
+      return socket.disconnect(true);
+    }
+    const reqPartyId = String(rawPartyId);
+
+    // ✅ Verify JWT
     let payload;
-    try { payload = jwt.verify(String(tok), jwtSecret); } 
-    catch { return socket.disconnect(true); }
+    try {
+      payload = jwt.verify(String(tok), jwtSecret);
+    } catch (e) {
+      logger.warn(`[SeatGateway] Disconnect: invalid JWT (${e.message})`);
+      return socket.disconnect(true);
+    }
 
     const userId = String(payload.userId || payload.id || payload.sub || '');
-    if (!userId) return socket.disconnect(true);
+    if (!userId) {
+      logger.warn(`[SeatGateway] Disconnect: no userId in token`);
+      return socket.disconnect(true);
+    }
 
-    const party = await AudioParty.findByPk(partyId);
-    if (!party || !party.isActive) return socket.disconnect(true);
+    // ✅ Find party by PK or by livekitRoomName (your "party_..." value)
+    let party = null;
+    try {
+      if (UUID_RE.test(reqPartyId)) {
+        party = await AudioParty.findByPk(reqPartyId);
+      } else {
+        party = await AudioParty.findOne({ where: { livekitRoomName: reqPartyId } });
+      }
+    } catch (e) {
+      logger.error(`[SeatGateway] DB error during party lookup`, e);
+    }
+
+    if (!party) {
+      logger.warn(`[SeatGateway] Disconnect: party not found for "${reqPartyId}" (PK or livekitRoomName)`);
+      return socket.disconnect(true);
+    }
+    if (!party.isActive) {
+      logger.warn(`[SeatGateway] Disconnect: party "${party.id}" inactive`);
+      return socket.disconnect(true);
+    }
 
     // attach auth context
     socket.data.userId = userId;
-    socket.data.partyId = String(partyId);
+    socket.data.partyId = String(party.id);          // store canonical PK
     socket.data.party = party;
 
-    const room = `party:${partyId}`;
-    socket.join(room);
+    const room = `party:${party.id}`;
+    await socket.join(room);
 
     // initial events
-    socket.emit('hello', { partyId, userId, ts: Date.now() });
-    try { socket.emit('sync.state', await fetchSeatsSnapshot(partyId)); } 
-    catch (e) { socket.emit('error', { code: 'SyncFailed', message: e.message }); }
+    socket.emit('hello', { partyId: party.id, userId, ts: Date.now() });
+    try {
+      socket.emit('sync.state', await fetchSeatsSnapshot(party.id));
+    } catch (e) {
+      socket.emit('error', { code: 'SyncFailed', message: e.message });
+    }
 
     socket.data.joined = false;
 
-    const ackOk = (cb, data) => { try { typeof cb === 'function' && cb({ ok: true, data }); } catch(_) {} };
+    const ackOk  = (cb, data) => { try { typeof cb === 'function' && cb({ ok: true, data }); } catch(_) {} };
     const ackErr = (cb, code, message) => { try { typeof cb === 'function' && cb({ ok: false, error: { code, message } }); } catch(_) {} };
     const requireMember = (cb) => { if(!socket.data.joined) { ackErr(cb,'NotJoined','Join party first'); return false;} return true; };
 
     // Presence
     socket.on('JOIN_PARTY', async (_payload, cb) => {
-      logger.info(`[SeatGateway] JOIN_PARTY: ${socket.id} user=${userId} party=${partyId}`);
+      logger.info(`[SeatGateway] JOIN_PARTY: ${socket.id} user=${userId} party=${party.id}`);
       socket.data.joined = true;
-      ackOk(cb, { partyId, userId });
-      socket.to(room).emit('presence.join', { partyId, userId, ts: Date.now() });
+      ackOk(cb, { partyId: party.id, userId });
+      socket.to(room).emit('presence.join', { partyId: party.id, userId, ts: Date.now() });
     });
 
     socket.on('LEAVE_PARTY', async (_payload, cb) => {
-      logger.info(`[SeatGateway] LEAVE_PARTY: ${socket.id} user=${userId} party=${partyId}`);
+      logger.info(`[SeatGateway] LEAVE_PARTY: ${socket.id} user=${userId} party=${party.id}`);
       socket.data.joined = false;
-      ackOk(cb, { partyId, userId });
-      socket.to(room).emit('presence.leave', { partyId, userId, ts: Date.now() });
+      ackOk(cb, { partyId: party.id, userId });
+      socket.to(room).emit('presence.leave', { partyId: party.id, userId, ts: Date.now() });
     });
 
     socket.on('SYNC', async (_payload, cb) => {
-      logger.info(`[SeatGateway] SYNC: ${socket.id} user=${userId} party=${partyId}`);
-      try { ackOk(cb, await fetchSeatsSnapshot(partyId)); } 
+      logger.info(`[SeatGateway] SYNC: ${socket.id} user=${userId} party=${party.id}`);
+      try { ackOk(cb, await fetchSeatsSnapshot(party.id)); } 
       catch (e) { ackErr(cb, 'SyncFailed', e.message); }
     });
 
@@ -93,36 +132,28 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
     socket.on('TAKE_SEAT_REQ', async ({ seatNumber, force=false }={}, cb) => {
       if(!requireMember(cb)) return;
       if(!Number.isInteger(seatNumber)) return ackErr(cb,'ValidationError','seatNumber int required');
-      logger.info(`[SeatGateway] TAKE_SEAT_REQ: ${socket.id} user=${userId} party=${partyId} seat=${seatNumber} force=${force}`);
+      logger.info(`[SeatGateway] TAKE_SEAT_REQ: ${socket.id} user=${userId} party=${party.id} seat=${seatNumber} force=${force}`);
       try {
-        const seat = await takeSeat({ partyId, seatNumber, userId, force });
+        const seat = await takeSeat({ partyId: party.id, seatNumber, userId, force });
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
-        logger.info(`[SeatGateway] TAKE_SEAT_SUCCESS: ${socket.id} user=${userId} seat=${seatNumber}`);
       } catch (err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] TAKE_SEAT_ERROR: ${socket.id} user=${userId} seat=${seatNumber} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
-        logger.error(`[SeatGateway] TAKE_SEAT_ERROR: ${socket.id} user=${userId} seat=${seatNumber}`, err);
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
+        logger.error(`[SeatGateway] TAKE_SEAT_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
     });
 
     socket.on('LEAVE_SEAT_REQ', async (_payload, cb) => {
       if(!requireMember(cb)) return;
-      logger.info(`[SeatGateway] LEAVE_SEAT_REQ: ${socket.id} user=${userId} party=${partyId}`);
+      logger.info(`[SeatGateway] LEAVE_SEAT_REQ: ${socket.id} user=${userId} party=${party.id}`);
       try {
-        const seat = await leaveSeat({ partyId, userId, allowHostLeave:false });
+        const seat = await leaveSeat({ partyId: party.id, userId, allowHostLeave:false });
         ackOk(cb, seat);
         if(seat) io.to(room).emit('seat.updated', seat);
-        logger.info(`[SeatGateway] LEAVE_SEAT_SUCCESS: ${socket.id} user=${userId}`);
       } catch (err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] LEAVE_SEAT_ERROR: ${socket.id} user=${userId} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
-        logger.error(`[SeatGateway] LEAVE_SEAT_ERROR: ${socket.id} user=${userId}`, err);
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
+        logger.error(`[SeatGateway] LEAVE_SEAT_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
     });
@@ -131,35 +162,25 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
     socket.on('SET_MUTE', async ({ targetUserId, isMuted }={}, cb) => {
       if(!requireMember(cb)) return;
       const target = String(targetUserId || userId);
-      logger.info(`[SeatGateway] SET_MUTE: ${socket.id} actor=${userId} target=${target} muted=${isMuted}`);
       try {
-        const seat = await setSeatMute({ partyId, userId: target, isMuted: !!isMuted, actorUserId: userId, allowSelf:true });
+        const seat = await setSeatMute({ partyId: party.id, userId: target, isMuted: !!isMuted, actorUserId: userId, allowSelf:true });
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
-        logger.info(`[SeatGateway] SET_MUTE_SUCCESS: ${socket.id} target=${target} muted=${isMuted}`);
       } catch (err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] SET_MUTE_ERROR: ${socket.id} target=${target} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
-        logger.error(`[SeatGateway] SET_MUTE_ERROR: ${socket.id} target=${target}`, err);
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
+        logger.error(`[SeatGateway] SET_MUTE_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
     });
 
     socket.on('MUTE_ALL', async ({ includeHost }={}, cb) => {
       if(!requireMember(cb)) return;
-      logger.info(`[SeatGateway] MUTE_ALL: ${socket.id} user=${userId} includeHost=${includeHost}`);
       try {
-        const seats = await muteAll({ partyId, actorUserId:userId, includeHost:!!includeHost });
+        const seats = await muteAll({ partyId: party.id, actorUserId:userId, includeHost:!!includeHost });
         ackOk(cb,{ count: seats.length });
-        io.to(room).emit('party.muted', { partyId, includeHost, ts: Date.now() });
-        logger.info(`[SeatGateway] MUTE_ALL_SUCCESS: ${socket.id} count=${seats.length}`);
+        io.to(room).emit('party.muted', { partyId: party.id, includeHost, ts: Date.now() });
       } catch (err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] MUTE_ALL_ERROR: ${socket.id} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
         logger.error(`[SeatGateway] MUTE_ALL_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
@@ -167,17 +188,12 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
 
     socket.on('UNMUTE_ALL', async ({ includeHost }={}, cb) => {
       if(!requireMember(cb)) return;
-      logger.info(`[SeatGateway] UNMUTE_ALL: ${socket.id} user=${userId} includeHost=${includeHost}`);
       try {
-        const seats = await unmuteAll({ partyId, actorUserId:userId, includeHost:!!includeHost });
+        const seats = await unmuteAll({ partyId: party.id, actorUserId:userId, includeHost:!!includeHost });
         ackOk(cb,{ count: seats.length });
-        io.to(room).emit('party.unmuted', { partyId, includeHost, ts: Date.now() });
-        logger.info(`[SeatGateway] UNMUTE_ALL_SUCCESS: ${socket.id} count=${seats.length}`);
+        io.to(room).emit('party.unmuted', { partyId: party.id, includeHost, ts: Date.now() });
       } catch (err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] UNMUTE_ALL_ERROR: ${socket.id} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
         logger.error(`[SeatGateway] UNMUTE_ALL_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
@@ -187,35 +203,25 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
     socket.on('SET_LOCK', async ({ seatNumber, lock }={}, cb) => {
       if(!requireMember(cb)) return;
       if(!Number.isInteger(seatNumber) || typeof lock!=='boolean') return ackErr(cb,'ValidationError','seatNumber int & lock bool required');
-      logger.info(`[SeatGateway] SET_LOCK: ${socket.id} user=${userId} seat=${seatNumber} lock=${lock}`);
       try {
-        const seat = await setSeatLock({ partyId, seatNumber, lock:!!lock, actorUserId:userId });
+        const seat = await setSeatLock({ partyId: party.id, seatNumber, lock:!!lock, actorUserId:userId });
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
-        logger.info(`[SeatGateway] SET_LOCK_SUCCESS: ${socket.id} seat=${seatNumber} lock=${lock}`);
       } catch(err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] SET_LOCK_ERROR: ${socket.id} seat=${seatNumber} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
-        logger.error(`[SeatGateway] SET_LOCK_ERROR: ${socket.id} seat=${seatNumber}`, err);
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
+        logger.error(`[SeatGateway] SET_LOCK_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
     });
 
     socket.on('LOCK_ALL', async ({ includeHost }={}, cb) => {
       if(!requireMember(cb)) return;
-      logger.info(`[SeatGateway] LOCK_ALL: ${socket.id} user=${userId} includeHost=${includeHost}`);
       try {
-        const seats = await lockAll({ partyId, actorUserId:userId, includeHost:!!includeHost });
+        const seats = await lockAll({ partyId: party.id, actorUserId:userId, includeHost:!!includeHost });
         ackOk(cb, { count: seats.length });
-        io.to(room).emit('party.locked', { partyId, includeHost, ts: Date.now() });
-        logger.info(`[SeatGateway] LOCK_ALL_SUCCESS: ${socket.id} count=${seats.length}`);
+        io.to(room).emit('party.locked', { partyId: party.id, includeHost, ts: Date.now() });
       } catch(err) {
-        if(err instanceof SeatError) {
-          logger.warn(`[SeatGateway] LOCK_ALL_ERROR: ${socket.id} error=${err.message}`);
-          return ackErr(cb, err.code||'SeatError', err.message);
-        }
+        if(err instanceof SeatError) return ackErr(cb, err.code||'SeatError', err.message);
         logger.error(`[SeatGateway] LOCK_ALL_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
@@ -223,26 +229,22 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
 
     // Ping
     socket.on('PING', (_payload, cb) => {
-      logger.info(`[SeatGateway] PING: ${socket.id} user=${userId}`);
       socket.emit('PONG', { ts: Date.now() });
       ackOk(cb,{ ts: Date.now() });
     });
 
-    // Disconnect cleanup
+    // Disconnect cleanup (keep only this one)
     socket.on('disconnect', async (reason) => {
       logger.info(`[SeatGateway] DISCONNECT: ${socket.id} user=${userId} reason=${reason}`);
       if(autoLeaveOnDisconnect){
         try {
-          const seat = await leaveSeat({ partyId, userId, allowHostLeave:false });
-          if(seat) {
-            io.to(room).emit('seat.updated', seat);
-            logger.info(`[SeatGateway] AUTO_LEAVE_SEAT: ${socket.id} user=${userId} seat=${seat.seatNumber}`);
-          }
+          const seat = await leaveSeat({ partyId: party.id, userId, allowHostLeave:false });
+          if(seat) io.to(room).emit('seat.updated', seat);
         } catch(err) {
           logger.error(`[SeatGateway] AUTO_LEAVE_ERROR: ${socket.id} user=${userId}`, err);
         }
       }
-      socket.to(room).emit('presence.leave', { partyId, userId, ts: Date.now(), reason });
+      socket.to(room).emit('presence.leave', { partyId: party.id, userId, ts: Date.now(), reason });
     });
   });
 }
