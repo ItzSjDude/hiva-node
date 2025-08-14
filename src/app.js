@@ -95,12 +95,16 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 // Initialize Socket.IO
+
+// startSeatIoServer();
 const { Server } = require('socket.io');
 const io = new Server(server, {
-  cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET','POST'] }
+  transports: ['websocket'], // polling skip
 });
-socketService.init(io);
-// startSeatIoServer();
-registerSeatNamespace(io, { path: '/ws' });
+
+// Register seat gateway
+registerSeatNamespace(io);
 
 module.exports = server;
+
+
