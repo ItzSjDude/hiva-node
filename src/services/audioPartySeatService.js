@@ -2,14 +2,14 @@
 const { Sequelize } = require('sequelize');
 const sequelize = require('../config/database');
 const AudioParty = require('../models/AudioParty');
-const AudioPartySeat = require('../models/AudioPartySeat');
+const AudioPartySeat = require('../models/AudioPartySeats');
 
 // 🔗 LiveKit server-side controls (hard mute/unmute)
 const {
   hardMute,
   hardUnmute,
   muteAllParticipantsAudio,
-} = require('./livekitService'); // path correct: services -> same folder
+} = require('./livekitservice'); // path correct: services -> same folder
 
 class SeatError extends Error {
   constructor(code, msg) { super(msg); this.code = code; }
