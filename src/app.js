@@ -10,7 +10,7 @@ const { createServer } = require('http');
 const routes          = require('./routes');
 const errorHandler    = require('./middleware/errorHandler');
 const socketService   = require('./services/socketService');
-const { startSeatIoServer } = require('./ws/seatGateway');
+const { registerSeatNamespace  } = require('./ws/seatGateway');
 
 const app    = express();
 const server = createServer(app);
@@ -100,6 +100,7 @@ const io = new Server(server, {
   cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET','POST'] }
 });
 socketService.init(io);
-startSeatIoServer();
+// startSeatIoServer();
+registerSeatNamespace(io, { path: '/ws' });
 
 module.exports = server;
