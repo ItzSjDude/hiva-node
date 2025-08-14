@@ -100,6 +100,6 @@ const io = new Server(server, {
   cors: { origin: process.env.FRONTEND_URL || '*', methods: ['GET','POST'] }
 });
 socketService.init(io);
-startSeatIoServer(io);
+startSeatIoServer();
 
 module.exports = server;
