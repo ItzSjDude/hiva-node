@@ -60,11 +60,11 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
 
     //<<<<<<<<<<<<<<SKIP JWT VERIFICATION FOR NOW>>>>>>>>>>>>>
     // ✅ Decode JWT (no verification)  
-    // let payload;
-    // try {     
-    //   payload = jwt.decode(String(tok), { complete: false });
-    // } catch (e) {
-    //   logger.warn(`[SeatGateway] Disconnect: invalid JWT (${e.message})`);
+     let payload;
+     try {     
+       payload = jwt.decode(String(tok), { complete: false });
+     } catch (e) {
+     logger.warn(`[SeatGateway] Disconnect: invalid JWT (${e.message})`);
 
     const userId = String(payload.userId || payload.id || payload.sub || '');
     if (!userId) {
