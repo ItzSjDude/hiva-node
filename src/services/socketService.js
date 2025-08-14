@@ -14,7 +14,7 @@ function init(io) {
 /**
  * Emit an event to all sockets in a party room.
  * @param {string} partyId
- * @param {string} event
+ * @param {string} event 
  * @param {any} payload
  */
 function emitToParty(partyId, event, payload) {

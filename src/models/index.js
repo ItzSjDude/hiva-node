@@ -4,6 +4,7 @@ const User = require('./User');
 const AudioParty = require('./AudioParty');
 const PartyParticipant = require('./PartyParticipant');
 const ChatMessage = require('./ChatMessage');
+const AudioPartySeat = require('./AudioPartySeats');
 
 // Associations
 User.hasMany(AudioParty, {
@@ -54,5 +55,6 @@ module.exports = {
   AudioParty,
   PartyParticipant,
   ChatMessage,
+  AudioPartySeat,
   connectDatabase
 };

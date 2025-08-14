@@ -68,3 +68,5 @@ const AudioParty = sequelize.define('AudioParty', {
 });
 
 module.exports = AudioParty;
+
+
