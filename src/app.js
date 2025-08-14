@@ -99,7 +99,16 @@ app.use(errorHandler);
 // startSeatIoServer();
 const { Server } = require('socket.io');
 const io = new Server(server, {
-  transports: ['websocket'], // polling skip
+  transports: ['websocket'], // WebSocket only as requested
+  cors: {
+    origin: process.env.FRONTEND_URL ? [process.env.FRONTEND_URL] : true,
+    credentials: true,
+    methods: ["GET", "POST"]
+  },
+  path: '/socket.io/', // Explicit path
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  upgradeTimeout: 10000
 });
 
 // Register seat gateway

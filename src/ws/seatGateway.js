@@ -25,6 +25,15 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
   if (!jwtSecret) throw new Error('JWT secret missing');
 
   io.on('connection', async (socket) => {
+    console.log(`[Socket] New connection: ${socket.id} from ${socket.handshake.address}`);
+    
+    socket.on('disconnect', (reason) => {
+      console.log(`[Socket] Disconnected: ${socket.id}, Reason: ${reason}`);
+    });
+    
+    socket.on('error', (error) => {
+      console.error(`[Socket] Error for ${socket.id}:`, error);
+    });
     const { token, jwt: jwtToken, partyId } = socket.handshake.query || {};
     const tok = token || jwtToken;
     if (!tok || !partyId) return socket.disconnect(true);
