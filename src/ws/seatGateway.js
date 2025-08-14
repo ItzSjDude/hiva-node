@@ -67,6 +67,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
      logger.warn(`[SeatGateway] Disconnect: invalid JWT (${e.message})`);
 
     const userId = String(payload.userId || payload.uid || payload.sub || '');
+     console.log(`[SeatGateway] Decoded payload:`, payload);
     if (!userId) {
       logger.warn(`[SeatGateway] Disconnect: no userId in token`);
       return socket.disconnect(true);
