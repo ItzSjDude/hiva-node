@@ -18,7 +18,7 @@ const {
   lockAll,
 } = require('../services/audioPartySeatService');
 
-const AudioPartySeat = require('../models/AudioPartySeat');
+const AudioPartySeat = require('../models/AudioPartySeats');
 const AudioParty = require('../models/AudioParty');
 
 async function fetchSeatsSnapshot(partyId) {
