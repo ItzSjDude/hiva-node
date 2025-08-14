@@ -16,8 +16,24 @@ const logger = createLogger({
         format.colorize(),
         format.simple()
       )
+    }),
+    // Add file transport for PM2 logs
+    new transports.File({
+      filename: 'logs/socket.log',
+      format: format.combine(
+        format.timestamp(),
+        format.json()
+      )
     })
   ]
 });
+
+// Ensure logs directory exists
+const fs = require('fs');
+const path = require('path');
+const logsDir = path.join(__dirname, '..', 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true });
+}
 
 module.exports = logger;
