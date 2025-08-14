@@ -95,6 +95,7 @@ app.get("/", (req, res) => {
 app.use(errorHandler);
 
 // Initialize Socket.IO
+const { createSocketLogger } = require('./middleware/socketLogger');
 
 // startSeatIoServer();
 const { Server } = require('socket.io');
@@ -110,6 +111,9 @@ const io = new Server(server, {
   pingInterval: 25000,
   upgradeTimeout: 10000
 });
+
+// Add comprehensive socket logging
+createSocketLogger(io);
 
 // Register seat gateway
 registerSeatNamespace(io);
