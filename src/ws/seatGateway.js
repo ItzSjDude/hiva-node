@@ -71,6 +71,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
       logger.warn(`[SeatGateway] Disconnect: no userId in token`);
       return socket.disconnect(true);
     }
+  }
 
     // ✅ Find party by PK or by livekitRoomName (your "party_..." value)
     let party = null;
