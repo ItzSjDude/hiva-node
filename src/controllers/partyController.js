@@ -60,7 +60,7 @@ exports.createParty = async (req, res) => {
     });
 
     // generate LiveKit token for host (publish allowed)
-    const token = generateLiveKitToken(livekitRoomName, partyWithHost.host.username, true);
+    const token = generateLiveKitToken(livekitRoomName, req.user.id, true);
 
     res.status(201).json({
       message: 'Party created',
@@ -240,7 +240,7 @@ exports.takeSeat = async (req, res) => {
     await participant.update({ seatNumber: seat, role: 'speaker', isMuted: false });
 
     // speaker token (publish)
-    const token = generateLiveKitToken(party.livekitRoomName, req.phpuser.username, true);
+    const token = generateLiveKitToken(party.livekitRoomName, req.phpuser.id, true);
     res.json({ message: `Seat ${seat} taken`, token, roomName: party.livekitRoomName, serverUrl: process.env.LIVEKIT_WS_URL });
   } catch (err) {
     console.error('Take seat error:', err);
