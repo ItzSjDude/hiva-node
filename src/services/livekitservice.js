@@ -48,7 +48,7 @@ function generateToken(roomName, identity, canPublish = false) {
  * @param {{ canPublish?: boolean, canSubscribe?: boolean, canPublishData?: boolean }} permissions
  */
 async function updateParticipant(roomName, identity, permissions) {
-  return await roomService.updateParticipant(roomName, identity, {
+  return await roomService.updateParticipant(roomName, identity,undefined, {
     permission: permissions,
   });
 }
