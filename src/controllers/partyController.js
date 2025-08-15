@@ -60,7 +60,7 @@ exports.createParty = async (req, res) => {
     });
 
     // generate LiveKit token for host (publish allowed)
-    const token = generateLiveKitToken(livekitRoomName, req.user.id, true);
+    const token = generateLiveKitToken(livekitRoomName, String(req.user.id), true);
 
     res.status(201).json({
       message: 'Party created',
