@@ -178,7 +178,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
       logger.info(`[SeatGateway] TAKE_SEAT_REQ: ${socket.id} user=${userId} party=${party.id} seat=${seatNumber} force=${force}`);
       try {
         const seat = await takeSeat({ partyId: party.id, seatNumber, userId, force });
-        await updateParticipant(party.livekitRoomName,String(userId),{ permission: { canPublish: true } } ); // allow publish
+        await updateParticipant(party.livekitRoomName,String(userId),{canPublish: true }); // allow publish
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
       } catch (err) {
