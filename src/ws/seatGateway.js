@@ -81,7 +81,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
         party = await AudioParty.findByPk(reqPartyId);
       } else {
         party = await AudioParty.findOne({ where: { livekitRoomName: reqPartyId } });
-      }
+      } 
     } catch (e) {
       logger.error(`[SeatGateway] DB error during party lookup`, e);
     }
