@@ -12,6 +12,7 @@ const {
 } = require('../services/audioPartySeatService');
 const AudioPartySeat = require('../models/AudioPartySeats');
 const AudioParty = require('../models/AudioParty');
+const { deleteRoom } = require('../services/livekitservice');
 
 // simple UUID regex to detect real PKs
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -126,11 +127,43 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
     });
 
     socket.on('LEAVE_PARTY', async (_payload, cb) => {
-      logger.info(`[SeatGateway] LEAVE_PARTY: ${socket.id} user=${userId} party=${party.id}`);
-      socket.data.joined = false;
-      ackOk(cb, { partyId: party.id, userId });
-      socket.to(room).emit('presence.leave', { partyId: party.id, userId, ts: Date.now() });
-    });
+  const room = `party:${party.id}`;
+
+  if (String(userId) === String(party.hostId)) {
+    logger.info(`[SeatGateway] LEAVE_PARTY (host): ${socket.id} user=${userId} party=${party.id}`);
+
+    try {
+      // 1. Close LiveKit room
+      if (party.livekitRoomName) {
+        await deleteRoom(party.livekitRoomName);
+        logger.info(`[SeatGateway] LiveKit room closed: ${party.livekitRoomName}`);
+      }
+
+      // 2. Delete all seats for this party
+      await AudioPartySeat.destroy({ where: { partyId: party.id } });
+
+      // 3. Delete party itself
+      await AudioParty.destroy({ where: { id: party.id } });
+
+      // 4. Notify all clients
+      io.to(room).emit('room.closed', { partyId: party.id, reason: 'host left' });
+
+      logger.info(`[SeatGateway] Party deleted: ${party.id}`);
+    } catch (err) {
+      logger.error(`[SeatGateway] Error deleting party ${party.id}`, err);
+    }
+
+    socket.data.joined = false;
+    return ackOk(cb, { partyId: party.id, userId });
+  }
+
+  // Normal user leave
+  logger.info(`[SeatGateway] LEAVE_PARTY (user): ${socket.id} user=${userId} party=${party.id}`);
+  socket.data.joined = false;
+  ackOk(cb, { partyId: party.id, userId });
+  socket.to(room).emit('presence.leave', { partyId: party.id, userId, ts: Date.now() });
+});
+
 
     socket.on('SYNC', async (_payload, cb) => {
       logger.info(`[SeatGateway] SYNC: ${socket.id} user=${userId} party=${party.id}`);
