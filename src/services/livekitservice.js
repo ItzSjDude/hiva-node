@@ -54,14 +54,22 @@ function generateToken(roomName, identity, canPublish = false) {
 // }
 
 
-async function allowMic({ roomName, identity }) {
-  await roomService.updateParticipant(roomName, String(identity), {
+async function allowMic(roomName, identity) {
+  if (!roomName) throw new Error('allowMic: roomName required');
+  if (identity === undefined || identity === null) throw new Error('allowMic: identity required');
+
+  const id = String(identity); // must match join-token identity exactly
+
+  return roomService.updateParticipant(roomName, id, {
     permission: {
       canSubscribe: true,
       canPublish: true,
       canPublishData: true,
+      // SDK accepts lowercase strings here:
       canPublishSources: ['microphone'],
     },
+    // name: 'optional display name',
+    // metadata: 'optional string',
   });
 }
 
