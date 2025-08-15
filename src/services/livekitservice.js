@@ -41,6 +41,38 @@ function generateToken(roomName, identity, canPublish = false) {
   return generateLiveKitToken(roomName, identity, canPublish);
 }
 
+/**
+ * Update a participant's permissions (e.g., mic on/off).
+ * @param {string} roomName
+ * @param {string} identity
+ * @param {{ canPublish?: boolean, canSubscribe?: boolean, canPublishData?: boolean }} permissions
+ */
+async function updateParticipant(roomName, identity, permissions) {
+  return await roomService.updateParticipant(roomName, identity, {
+    permission: permissions,
+  });
+}
+
+/**
+ * List all participants in a room.
+ * @param {string} roomName
+ * @returns {Promise<Array>}
+ */
+async function listParticipants(roomName) {
+  const room = await roomService.getRoom(roomName);
+  return room.participants || [];
+}
+
+/**
+ * Remove (kick) a participant from a room.
+ * @param {string} roomName
+ * @param {string} identity
+ */
+async function removeParticipant(roomName, identity) {
+  return await roomService.removeParticipant(roomName, identity);
+}
+
+
 module.exports = {
   createRoom,
   deleteRoom,
