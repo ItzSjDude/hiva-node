@@ -172,7 +172,7 @@ exports.joinParty = async (req, res) => {
     }
 
     // listener token (no publish)
-    const token = generateLiveKitToken(party.livekitRoomName, req.user.id, false);
+    const token = generateLiveKitToken(party.livekitRoomName, String(req.user.id), false);
 
     res.json({
       message: 'Joined party',
