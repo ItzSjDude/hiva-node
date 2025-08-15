@@ -12,7 +12,7 @@ const {
 } = require('../services/audioPartySeatService');
 const AudioPartySeat = require('../models/AudioPartySeats');
 const AudioParty = require('../models/AudioParty');
-const { deleteRoom, updateParticipant} = require('../services/livekitservice');
+const { deleteRoom, all, allowMic} = require('../services/livekitservice');
 
 // simple UUID regex to detect real PKs
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,7 +178,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
       logger.info(`[SeatGateway] TAKE_SEAT_REQ: ${socket.id} user=${userId} party=${party.id} seat=${seatNumber} force=${force}`);
       try {
         const seat = await takeSeat({ partyId: party.id, seatNumber, userId, force });
-        await updateParticipant(party.livekitRoomName,String(userId),{ canPublish: true, canSubscribe: true }); // allow publish
+        await allowMic(party.livekitRoomName, userId); // allow publish
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
       } catch (err) {

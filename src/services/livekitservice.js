@@ -47,9 +47,32 @@ function generateToken(roomName, identity, canPublish = false) {
  * @param {string} identity
  * @param {{ canPublish?: boolean, canSubscribe?: boolean, canPublishData?: boolean }} permissions
  */
-async function updateParticipant(roomName, identity, permissions) {
-  return await roomService.updateParticipant(roomName, identity,undefined, {
-    permission: permissions,
+// async function updateParticipant(roomName, identity, permissions) {
+//   return await roomService.updateParticipant(roomName, identity,undefined, {
+//     permission: permissions,
+//   });
+// }
+
+
+async function allowMic({ roomName, identity }) {
+  await roomService.updateParticipant(roomName, String(identity), {
+    permission: {
+      canSubscribe: true,
+      canPublish: true,
+      canPublishData: true,
+      canPublishSources: ['microphone'],
+    },
+  });
+}
+
+async function revokeMic({ roomName, identity }) {
+  await roomService.updateParticipant(roomName, String(identity), {
+    permission: {
+      canSubscribe: true,
+      canPublish: false,
+      canPublishData: true,
+      canPublishSources: [], // or omit
+    },
   });
 }
 
@@ -77,7 +100,9 @@ module.exports = {
   createRoom,
   deleteRoom,
   generateToken,
-  updateParticipant,
+  // updateParticipant,
+  allowMic,
+  revokeMic,
   listParticipants,
   removeParticipant, 
 };
