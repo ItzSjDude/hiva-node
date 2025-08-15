@@ -77,4 +77,7 @@ module.exports = {
   createRoom,
   deleteRoom,
   generateToken,
+  updateParticipant,
+  listParticipants,
+  removeParticipant, 
 };

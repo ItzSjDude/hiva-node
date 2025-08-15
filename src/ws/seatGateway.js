@@ -12,7 +12,7 @@ const {
 } = require('../services/audioPartySeatService');
 const AudioPartySeat = require('../models/AudioPartySeats');
 const AudioParty = require('../models/AudioParty');
-const { deleteRoom } = require('../services/livekitservice');
+const { deleteRoom, updateParticipant} = require('../services/livekitservice');
 
 // simple UUID regex to detect real PKs
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -178,7 +178,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
       logger.info(`[SeatGateway] TAKE_SEAT_REQ: ${socket.id} user=${userId} party=${party.id} seat=${seatNumber} force=${force}`);
       try {
         const seat = await takeSeat({ partyId: party.id, seatNumber, userId, force });
-        await livekitRoomService.updateParticipant(party.livekitRoomName,String(userId),{ permission: { canPublish: true } } ); // allow publish
+        await updateParticipant(party.livekitRoomName,String(userId),{ permission: { canPublish: true } } ); // allow publish
         ackOk(cb, seat);
         io.to(room).emit('seat.updated', seat);
       } catch (err) {
@@ -186,7 +186,7 @@ function registerSeatNamespace(io, { jwtSecret = process.env.JWT_SECRET, autoLea
         logger.error(`[SeatGateway] TAKE_SEAT_ERROR: ${socket.id}`, err);
         ackErr(cb,'InternalError','Something went wrong');
       }
-    });
+    });//
 
     socket.on('LEAVE_SEAT_REQ', async (_payload, cb) => {
       if(!requireMember(cb)) return;
