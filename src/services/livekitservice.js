@@ -55,14 +55,12 @@ function generateToken(roomName, identity, canPublish = false) {
 
 
 async function allowMic({ roomName, identity }) {
-  await roomService.updateParticipant(roomName, String(identity), undefined, {
-    permission: {
+  await roomService.updateParticipant(roomName, identity, undefined, {
       canSubscribe: true,
       canPublish: true,
       canPublishData: true,
       canPublishSources: ['microphone'],
-    },
-
+    
   });
 }
 
