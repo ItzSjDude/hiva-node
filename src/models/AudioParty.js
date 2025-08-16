@@ -23,7 +23,6 @@ const AudioParty = sequelize.define('AudioParty', {
   livekitRoomName: {
     type: DataTypes.STRING(100),
     allowNull: false,
-    unique: true,
   },
   maxParticipants: {
     type: DataTypes.INTEGER,
