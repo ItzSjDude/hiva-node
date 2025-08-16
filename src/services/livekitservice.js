@@ -56,22 +56,50 @@ function generateToken(roomName, identity, canPublish = false) {
 
 // make sure baseURL/proxy resolves /twirp to livekit
 async function allowMic({ roomName, identity }) {
-  await roomService.updateParticipant(
-    roomName,
-    identity,
-    undefined, // keep metadata as-is
-    {
-      canSubscribe: true,
-      canPublish: true,                 // required with canPublishSources
-      canPublishData: true,
-      // canPublishSources: ['microphone'],// valid list only
-      // optional flags:
-      // hidden: false,
-      // recorder: false,
-      // canUpdateMetadata: false,
-    },
-    undefined // name unchanged
-  );
+  console.log('[allowMic] inputs =>', { roomName, identity, typeOfIdentity: typeof identity });
+
+  try {
+    await roomService.updateParticipant(
+      roomName,
+      identity,
+      undefined,
+      { canSubscribe: true, canPublish: true, canPublishData: true },
+      undefined
+    );
+
+    console.log('[allowMic] success =>', { roomName, identity });
+  } catch (err) {
+    console.error('[allowMic] error =>', {
+      roomName,
+      identity,
+      code: err?.code || err?.response?.status,
+      message: err?.message,
+    });
+    throw err;
+  }
+}
+async function allowMic({ roomName, identity }) {
+  console.log('[allowMic] inputs =>', { roomName, identity, typeOfIdentity: typeof identity });
+
+  try {
+    await roomService.updateParticipant(
+      roomName,
+      identity,
+      undefined,
+      { canSubscribe: true, canPublish: true, canPublishData: true },
+      undefined
+    );
+
+    console.log('[allowMic] success =>', { roomName, identity });
+  } catch (err) {
+    console.error('[allowMic] error =>', {
+      roomName,
+      identity,
+      code: err?.code || err?.response?.status,
+      message: err?.message,
+    });
+    throw err;
+  }
 }
 
 
@@ -118,3 +146,52 @@ module.exports = {
   listParticipants,
   removeParticipant, 
 };
+
+
+
+// src/config/livekit.js
+const { AccessToken, RoomServiceClient } = require('livekit-server-sdk');
+
+const LIVEKIT_API_KEY    = process.env.LIVEKIT_API_KEY;
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
+const LIVEKIT_WS_URL     = process.env.LIVEKIT_WS_URL || 'ws://localhost:7880';
+
+// initialize the LiveKit RoomService client
+const roomService = new RoomServiceClient(
+  LIVEKIT_WS_URL,
+  LIVEKIT_API_KEY,
+  LIVEKIT_API_SECRET
+);
+
+/**
+ * Generate a LiveKit AccessToken for a room and identity.
+ * @param {string} roomName
+ * @param {string} identity
+ * @param {boolean} canPublish
+ * @returns {string} JWT token
+ */
+function generateLiveKitToken(roomName, identity, canPublish = false) {
+  const at = new AccessToken(
+    LIVEKIT_API_KEY,
+    LIVEKIT_API_SECRET,
+    { identity }
+  );
+
+  // grant joining + subscription + optional publishing
+  at.addGrant({
+    roomJoin: true,
+    room: roomName,
+    canSubscribe: true,
+    canPublish
+  });
+
+  return at.toJwt();
+}
+
+module.exports = {
+  roomService,
+  generateLiveKitToken,
+  LIVEKIT_WS_URL,
+};
+
+
