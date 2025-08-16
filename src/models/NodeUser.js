@@ -11,7 +11,7 @@ const NodeUser = sequelize.define('NodeUser', {
   uid: {
     type: DataTypes.STRING(255),
     allowNull: false,
-    unique: true,
+    // unique: true,
     comment: 'Matches Laravel user ID',
   },
 
