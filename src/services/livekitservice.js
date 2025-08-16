@@ -54,15 +54,26 @@ function generateToken(roomName, identity, canPublish = false) {
 // }
 
 
+// make sure baseURL/proxy resolves /twirp to livekit
 async function allowMic({ roomName, identity }) {
-  await roomService.updateParticipant(roomName, identity, undefined, {
+  await roomService.updateParticipant(
+    roomName,
+    identity,
+    undefined, // keep metadata as-is
+    {
       canSubscribe: true,
-      canPublish: true,
+      canPublish: true,                 // required with canPublishSources
       canPublishData: true,
-      canPublishSources: ['microphone'],
-    
-  });
+      // canPublishSources: ['microphone'],// valid list only
+      // optional flags:
+      // hidden: false,
+      // recorder: false,
+      // canUpdateMetadata: false,
+    },
+    undefined // name unchanged
+  );
 }
+
 
 async function revokeMic({ roomName, identity }) {
   await roomService.updateParticipant(roomName, String(identity), {
