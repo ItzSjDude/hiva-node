@@ -75,6 +75,8 @@ async function allowMic({ roomName, identity }) {
 }
 
 
+
+
 async function revokeMic({ roomName, identity }) {
   await roomService.updateParticipant(roomName, String(identity), {
     permission: {
